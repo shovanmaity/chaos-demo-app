@@ -7,6 +7,16 @@ metadata:
     name: todo-app
 
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-app-config
+  namespace: todo-app
+data:
+  APPLICATION_NAME: "flask-todo-app"
+  EMISSARY_URL: "http://emissary-service:8080"
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,6 +44,17 @@ spec:
         - containerPort: 5000
           name: http
           protocol: TCP
+        env:
+        - name: APPLICATION_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: todo-app-config
+              key: APPLICATION_NAME
+        - name: EMISSARY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: todo-app-config
+              key: EMISSARY_URL
         resources:
           requests:
             memory: "128Mi"
