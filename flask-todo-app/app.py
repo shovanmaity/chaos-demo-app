@@ -2,7 +2,6 @@
 In-Memory Todo Application with Auto-Expiration
 
 A Flask web application that stores todos in memory with automatic 5-minute expiration.
-Demonstrates chaos engineering using the harnesschaos package.
 """
 
 import os
@@ -12,17 +11,12 @@ import threading
 import time
 from flask import Flask, jsonify, request, render_template
 from dotenv import load_dotenv
-import harnesschaos
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-
-# Configure harnesschaos
-APPLICATION_NAME = os.getenv('APPLICATION_NAME', 'flask-todo-app')
-EMISSARY_URL = os.getenv('EMISSARY_URL', 'http://localhost:8080')
 
 # In-memory storage for todos
 # Structure: {id: {'title': str, 'description': str, 'completed': bool, 'created_at': datetime, 'expires_at': datetime}}
@@ -600,12 +594,7 @@ def home():
 
 @app.route('/api/todos', methods=['GET'])
 def getTodos():
-    """
-    Get all active (non-expired) todos.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Get all active (non-expired) todos."""
     now = datetime.datetime.now()
     with storage_lock:
         active_todos = [
@@ -623,13 +612,7 @@ def getTodos():
 
 @app.route('/api/todos', methods=['POST'])
 def createTodo():
-    """
-    Create a new todo item.
-    Expects JSON: {"title": str, "description": str (optional)}
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Create a new todo item."""
     global todo_counter
     
     data = request.get_json()
@@ -667,12 +650,7 @@ def createTodo():
 
 @app.route('/api/todos/<int:todo_id>', methods=['GET'])
 def getTodo(todo_id):
-    """
-    Get a specific todo by ID.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Get a specific todo by ID."""
     now = datetime.datetime.now()
     with storage_lock:
         todo = todos_storage.get(todo_id)
@@ -690,13 +668,7 @@ def getTodo(todo_id):
 
 @app.route('/api/todos/<int:todo_id>', methods=['PUT'])
 def updateTodo(todo_id):
-    """
-    Update an existing todo.
-    Expects JSON: {"title": str (optional), "description": str (optional), "completed": bool (optional)}
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Update an existing todo."""
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No JSON data provided'}), 400
@@ -731,12 +703,7 @@ def updateTodo(todo_id):
 
 @app.route('/api/todos/<int:todo_id>/toggle', methods=['PATCH'])
 def toggleTodo(todo_id):
-    """
-    Toggle the completed status of a todo.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Toggle the completed status of a todo."""
     now = datetime.datetime.now()
     with storage_lock:
         todo = todos_storage.get(todo_id)
@@ -758,12 +725,7 @@ def toggleTodo(todo_id):
 
 @app.route('/api/todos/<int:todo_id>', methods=['DELETE'])
 def deleteTodo(todo_id):
-    """
-    Delete a todo by ID.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Delete a todo by ID."""
     with storage_lock:
         todo = todos_storage.get(todo_id)
         
@@ -780,12 +742,7 @@ def deleteTodo(todo_id):
 
 @app.route('/api/stats')
 def getStats():
-    """
-    Get statistics about todos.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Get statistics about todos."""
     now = datetime.datetime.now()
     with storage_lock:
         total = len(todos_storage)
@@ -807,18 +764,13 @@ def getStats():
 
 @app.route('/health')
 def healthStatus():
-    """
-    Health check endpoint.
-    This endpoint is chaos-enabled and can be injected with faults.
-    """
-    harnesschaos.run()
-    
+    """Health check endpoint."""
     with storage_lock:
         todo_count = len(todos_storage)
     
     return jsonify({
         'status': 'healthy',
-        'application': APPLICATION_NAME,
+        'application': 'flask-todo-app',
         'todos_in_memory': todo_count,
         'timestamp': datetime.datetime.now().isoformat()
     })
@@ -826,9 +778,7 @@ def healthStatus():
 
 @app.route('/api/info')
 def apiInfo():
-    """
-    Get API information and available endpoints.
-    """
+    """Get API information and available endpoints."""
     endpoints = []
     for rule in app.url_map.iter_rules():
         if rule.endpoint != 'static':
@@ -839,9 +789,8 @@ def apiInfo():
             })
     
     return jsonify({
-        'application': APPLICATION_NAME,
+        'application': 'flask-todo-app',
         'version': '1.0.0',
-        'chaos_enabled': True,
         'data_retention_seconds': EXPIRATION_TIME,
         'endpoints': endpoints
     })
@@ -852,22 +801,6 @@ if __name__ == '__main__':
     cleanup_thread = threading.Thread(target=cleanup_expired_todos, daemon=True)
     cleanup_thread.start()
     print(f"🧹 Started background cleanup thread (checks every 30s)")
-    
-    # Configure harnesschaos
-    try:
-        harnesschaos.configure(
-            application_name=APPLICATION_NAME,
-            emissary_url=EMISSARY_URL,
-            debug=True
-        )
-        # Start background threads for chaos discovery and fault polling
-        harnesschaos.start()
-        print(f"✅ Harness Chaos initialized successfully!")
-        print(f"   Application: {APPLICATION_NAME}")
-        print(f"   Emissary URL: {EMISSARY_URL}")
-    except Exception as e:
-        print(f"⚠️  Warning: Could not initialize harnesschaos: {e}")
-        print(f"   The app will run without chaos engineering capabilities.")
     
     # Run Flask app
     print(f"\n🚀 Starting In-Memory Todo App...")
